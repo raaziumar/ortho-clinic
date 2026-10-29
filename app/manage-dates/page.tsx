@@ -33,7 +33,6 @@ export default function ManageDatesPage() {
   async function loadDates() {
     setLoading(true);
     try {
-      // UPDATED: Added op_id to the patients select
       const { data, error } = await supabase
         .from('clinic_dates')
         .select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, op_id, total_amount, remaining_amount))`)
@@ -225,7 +224,7 @@ export default function ManageDatesPage() {
                 <li key={dateItem.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="cursor-pointer flex-1" onClick={() => { setSelectedDate(dateItem); setIsDateModalOpen(true); setDateSearchQuery(''); setSelectedTemplate('appointment_reminder'); }}>
                     <p className="font-bold text-slate-900 dark:text-white text-lg transition-colors">{dateItem.date_name}</p>
-                    {dateItem.note && <p className="text-sm text-slate-500 dark:text-slate-400 italic transition-colors">📝 {dateItem.note}</p>}
+                    {dateItem.note && <p className="text-sm text-slate-500 dark:text-slate-400 italic transition-colors"> {dateItem.note}</p>}
                     <p className="text-sm text-purple-600 dark:text-purple-400 font-medium mt-1 transition-colors">{dateItem.date_assignments?.length || 0} patients assigned</p>
                   </div>
                   <button onClick={() => handleDeleteDate(dateItem.id)} className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">Delete Slot</button>
@@ -324,7 +323,7 @@ export default function ManageDatesPage() {
         </div>
       )}
 
-      {/* Patient Profile Modal */}
+      {/* Patient Profile Modal (Payment & History) */}
       {isPatientModalOpen && selectedPatient && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 transition-colors duration-300">
@@ -332,10 +331,15 @@ export default function ManageDatesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-2xl font-bold text-slate-900 dark:text-white transition-colors">{selectedPatient.full_name}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 transition-colors">
-                    {selectedPatient.phone_number}
-                    {selectedPatient.op_id && ` • OP ID: ${selectedPatient.op_id}`}
-                  </p>
+                  {/* UPDATED: Prominent OP ID Badge */}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <p className="text-slate-500 dark:text-slate-400 transition-colors">{selectedPatient.phone_number}</p>
+                    {selectedPatient.op_id && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 transition-colors">
+                        OP ID: {selectedPatient.op_id}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button onClick={() => setIsPatientModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl transition-colors">&times;</button>
               </div>
@@ -358,7 +362,7 @@ export default function ManageDatesPage() {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {selectedPatient.payment_history?.length > 0 ? selectedPatient.payment_history.map((p: any) => (
                     <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm transition-colors">
-                      <div><p className="font-medium text-slate-900 dark:text-white transition-colors">{p.amount_paid}</p><p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{new Date(p.payment_date).toLocaleDateString()} {p.notes && `• ${p.notes}`}</p></div>
+                      <div><p className="font-medium text-slate-900 dark:text-white transition-colors">₹{p.amount_paid}</p><p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{new Date(p.payment_date).toLocaleDateString()} {p.notes && `• ${p.notes}`}</p></div>
                     </div>
                   )) : <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-2 transition-colors">No payments recorded yet.</p>}
                 </div>

@@ -9,21 +9,22 @@ export default function Home() {
   const [slots, setSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [todayDate, setTodayDate] = useState('');
+  
+  // Form states
   const [name, setName] = useState('');
+  const [opId, setOpId] = useState(''); // NEW: OP ID State
   const [age, setAge] = useState('');
   const [phone, setPhone] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
 
-  
+  const todayDate = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+  });
 
   useEffect(() => {
     loadPatients();
     loadSlots();
-    setTodayDate(new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-  }));
   }, []);
 
   async function loadPatients() {
@@ -52,8 +53,12 @@ export default function Home() {
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
         .insert([{ 
-          full_name: name, age: parseInt(age) || 0, phone_number: phone, 
-          total_amount: total, remaining_amount: total 
+          full_name: name, 
+          op_id: opId, // NEW: Insert OP ID
+          age: parseInt(age) || 0, 
+          phone_number: phone, 
+          total_amount: total,
+          remaining_amount: total 
         }])
         .select().single();
 
@@ -65,15 +70,18 @@ export default function Home() {
         }]);
       }
       
-      setName(''); setAge(''); setPhone(''); setTotalAmount(''); setSelectedSlotId('');
+      // Clear form
+      setName(''); setOpId(''); setAge(''); setPhone(''); setTotalAmount(''); setSelectedSlotId('');
       loadPatients();
       alert("Patient added and assigned successfully!");
     } catch (err) { console.error(err); alert("Error adding patient."); }
   }
 
+  // NEW: Updated search to include OP ID
   const filteredPatients = patients.filter(p => 
     p.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.phone_number.includes(searchQuery)
+    p.phone_number.includes(searchQuery) ||
+    (p.op_id && p.op_id.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -128,10 +136,18 @@ export default function Home() {
                 Add New Patient
               </h2>
               <form onSubmit={handleAddPatient} className="space-y-3">
-                <input 
-                  type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400" required 
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input 
+                    type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400" required 
+                  />
+                  {/* NEW: OP ID Input */}
+                  <input 
+                    type="text" placeholder="OP ID" value={opId} onChange={(e) => setOpId(e.target.value)}
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400" 
+                  />
+                </div>
+                
                 <div className="grid grid-cols-2 gap-3">
                   <input 
                     type="number" placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)}
@@ -142,6 +158,7 @@ export default function Home() {
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400" 
                   />
                 </div>
+                
                 <input 
                   type="tel" placeholder="WhatsApp Number" value={phone} onChange={(e) => setPhone(e.target.value)}
                   className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400" required 
@@ -173,7 +190,7 @@ export default function Home() {
                 <div className="relative w-full sm:w-64">
                   <input 
                     type="text" 
-                    placeholder="Search name or phone..." 
+                    placeholder="Search name, phone, or OP ID..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-4 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
@@ -197,7 +214,11 @@ export default function Home() {
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900 dark:text-white transition-colors">{patient.full_name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{patient.phone_number} • Age: {patient.age}</p>
+                          {/* NEW: Display OP ID in the list */}
+                          <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
+                            {patient.phone_number} • Age: {patient.age} 
+                            {patient.op_id && ` • OP ID: ${patient.op_id}`}
+                          </p>
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">

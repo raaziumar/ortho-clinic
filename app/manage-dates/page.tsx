@@ -33,9 +33,10 @@ export default function ManageDatesPage() {
   async function loadDates() {
     setLoading(true);
     try {
+      // UPDATED: Added op_id to the patients select
       const { data, error } = await supabase
         .from('clinic_dates')
-        .select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, total_amount, remaining_amount))`)
+        .select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, op_id, total_amount, remaining_amount))`)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setDates(data || []);
@@ -76,7 +77,7 @@ export default function ManageDatesPage() {
       loadDates();
       setIsAddPatientModalOpen(false);
       setAddPatientSearch('');
-      const { data: updatedDates } = await supabase.from('clinic_dates').select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, total_amount, remaining_amount))`).eq('id', selectedDate.id).single();
+      const { data: updatedDates } = await supabase.from('clinic_dates').select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, op_id, total_amount, remaining_amount))`).eq('id', selectedDate.id).single();
       setSelectedDate(updatedDates);
     } catch (err) { console.error(err); alert("Error assigning patient."); }
   }
@@ -86,7 +87,7 @@ export default function ManageDatesPage() {
     try {
       await supabase.from('date_assignments').delete().eq('id', assignmentId);
       loadDates();
-      const { data: updatedDates } = await supabase.from('clinic_dates').select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, total_amount, remaining_amount))`).eq('id', selectedDate.id).single();
+      const { data: updatedDates } = await supabase.from('clinic_dates').select(`id, clinic_date, date_name, note, date_assignments (id, patients (id, full_name, phone_number, op_id, total_amount, remaining_amount))`).eq('id', selectedDate.id).single();
       setSelectedDate(updatedDates);
     } catch (err) { console.error(err); }
   }
@@ -163,17 +164,18 @@ export default function ManageDatesPage() {
 
   const filteredDatePatients = selectedDate?.date_assignments?.filter((a: any) => 
     a.patients.full_name.toLowerCase().includes(dateSearchQuery.toLowerCase()) || 
-    a.patients.phone_number.includes(dateSearchQuery)
+    a.patients.phone_number.includes(dateSearchQuery) ||
+    (a.patients.op_id && a.patients.op_id.toLowerCase().includes(dateSearchQuery.toLowerCase()))
   ) || [];
   
   const filteredAllPatients = allPatients.filter(p => 
     p.full_name.toLowerCase().includes(addPatientSearch.toLowerCase()) || 
-    p.phone_number.includes(addPatientSearch)
+    p.phone_number.includes(addPatientSearch) ||
+    (p.op_id && p.op_id.toLowerCase().includes(addPatientSearch.toLowerCase()))
   );
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-      {/* Modern Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm transition-colors duration-300">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -198,7 +200,6 @@ export default function ManageDatesPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Add Slot Form */}
         <section className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-8 transition-colors duration-300">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4 transition-colors">Create New Slot</h2>
           <form onSubmit={handleAddDate} className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -214,7 +215,6 @@ export default function ManageDatesPage() {
           </form>
         </section>
 
-        {/* Slots List */}
         <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden transition-colors duration-300">
           <div className="p-6 border-b border-slate-100 dark:border-slate-800 transition-colors">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white transition-colors">Active Slots</h2>
@@ -244,7 +244,7 @@ export default function ManageDatesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-2xl font-bold text-slate-900 dark:text-white transition-colors">{selectedDate.date_name}</h3>
-                  {selectedDate.note && <p className="text-slate-500 dark:text-slate-400 italic mt-1 transition-colors"> {selectedDate.note}</p>}
+                  {selectedDate.note && <p className="text-slate-500 dark:text-slate-400 italic mt-1 transition-colors">📝 {selectedDate.note}</p>}
                 </div>
                 <button onClick={() => setIsDateModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl transition-colors">&times;</button>
               </div>
@@ -255,7 +255,7 @@ export default function ManageDatesPage() {
                   onChange={(e) => setSelectedTemplate(e.target.value)}
                   className="flex-1 p-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-green-500 outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-white transition-colors"
                 >
-                  <option value="appointment_reminder">📅 Appointment Reminder</option>
+                  <option value="appointment_reminder"> Appointment Reminder</option>
                   <option value="date_change">⚠️ Date Change / Postponed</option>
                   <option value="payment_due">💰 Payment Due Reminder</option>
                 </select>
@@ -279,7 +279,11 @@ export default function ManageDatesPage() {
                     <li key={assignment.id} className="flex justify-between items-center p-3 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <div className="cursor-pointer flex-1" onClick={() => { setSelectedPatient(assignment.patients); setIsPatientModalOpen(true); }}>
                         <p className="font-medium text-slate-900 dark:text-white transition-colors">{assignment.patients.full_name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{assignment.patients.phone_number} • Due: ₹{assignment.patients.remaining_amount}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
+                          {assignment.patients.phone_number}
+                          {assignment.patients.op_id && ` • OP ID: ${assignment.patients.op_id}`}
+                          {' '}• Due: ₹{assignment.patients.remaining_amount}
+                        </p>
                       </div>
                       <button onClick={() => handleUnassignPatient(assignment.id)} className="text-red-500 hover:text-red-700 dark:hover:text-red-400 text-sm ml-4 transition-colors">Remove</button>
                     </li>
@@ -300,23 +304,22 @@ export default function ManageDatesPage() {
               <button onClick={() => setIsAddPatientModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl transition-colors">&times;</button>
             </div>
             <div className="p-4">
-              <input type="text" placeholder="Search patients..." value={addPatientSearch} onChange={(e) => setAddPatientSearch(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all mb-4 placeholder:text-slate-400" autoFocus />
+              <input type="text" placeholder="Search patients by name, phone, or OP ID..." value={addPatientSearch} onChange={(e) => setAddPatientSearch(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all mb-4 placeholder:text-slate-400" autoFocus />
               <div className="max-h-64 overflow-y-auto space-y-2">
                 {filteredAllPatients.map(patient => (
                   <button key={patient.id} onClick={() => handleAssignPatient(patient.id)} className="w-full text-left p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all flex justify-between items-center">
-                    <div><p className="font-medium text-slate-900 dark:text-white transition-colors">{patient.full_name}</p><p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{patient.phone_number}</p></div>
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-white transition-colors">{patient.full_name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
+                        {patient.phone_number}
+                        {patient.op_id && ` • OP ID: ${patient.op_id}`}
+                      </p>
+                    </div>
                     <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-lg transition-colors">Assign</span>
                   </button>
                 ))}
               </div>
             </div>
-            <div>
-  <h3 className="text-2xl font-bold text-slate-900 dark:text-white transition-colors">{selectedPatient.full_name}</h3>
-  <p className="text-slate-500 dark:text-slate-400 transition-colors">
-    {selectedPatient.phone_number}
-    {selectedPatient.op_id && ` • OP ID: ${selectedPatient.op_id}`}
-  </p>
-</div>
           </div>
         </div>
       )}
@@ -329,7 +332,10 @@ export default function ManageDatesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-2xl font-bold text-slate-900 dark:text-white transition-colors">{selectedPatient.full_name}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 transition-colors">{selectedPatient.phone_number}</p>
+                  <p className="text-slate-500 dark:text-slate-400 transition-colors">
+                    {selectedPatient.phone_number}
+                    {selectedPatient.op_id && ` • OP ID: ${selectedPatient.op_id}`}
+                  </p>
                 </div>
                 <button onClick={() => setIsPatientModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl transition-colors">&times;</button>
               </div>
@@ -352,7 +358,7 @@ export default function ManageDatesPage() {
                 <div className="space-y-2 max-h-40 overflow-y-auto">
                   {selectedPatient.payment_history?.length > 0 ? selectedPatient.payment_history.map((p: any) => (
                     <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm transition-colors">
-                      <div><p className="font-medium text-slate-900 dark:text-white transition-colors">₹{p.amount_paid}</p><p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{new Date(p.payment_date).toLocaleDateString()} {p.notes && `• ${p.notes}`}</p></div>
+                      <div><p className="font-medium text-slate-900 dark:text-white transition-colors">{p.amount_paid}</p><p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">{new Date(p.payment_date).toLocaleDateString()} {p.notes && `• ${p.notes}`}</p></div>
                     </div>
                   )) : <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-2 transition-colors">No payments recorded yet.</p>}
                 </div>
